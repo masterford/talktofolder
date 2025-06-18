@@ -83,7 +83,7 @@ export default function RecentChatsCarousel() {
   if (recentChats.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">No recent chats found. Start by opening a folder above!</p>
+        <p className="text-gray-500">No recent chats found. Start by opening a folder below!</p>
       </div>
     )
   }

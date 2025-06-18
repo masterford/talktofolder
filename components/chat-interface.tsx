@@ -43,12 +43,32 @@ interface FolderInfo {
   indexStatus?: string
 }
 
+interface Message {
+  id: string
+  role: string
+  content: string
+  citations?: {
+    fileName: string
+    fileId: string
+    score: number
+    chunkIndex: number
+  }[]
+  createdAt: string
+}
+
+interface ChatSession {
+  id: string
+  folderId: string
+  folderName: string
+}
+
 export default function ChatInterface({ folderId }: ChatInterfaceProps) {
   const router = useRouter()
   const { data: session } = useSession()
-  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([])
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [chatSession, setChatSession] = useState<ChatSession | null>(null)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [files, setFiles] = useState<FileInfo[]>([])
   const [subfolders, setSubfolders] = useState<SubfolderInfo[]>([])
@@ -84,6 +104,22 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
         const chatResponse = await fetch(`/api/folders/${folderId}/chat`, {
           method: 'POST',
         })
+        
+        if (chatResponse.ok) {
+          const chatData = await chatResponse.json()
+          setChatSession({
+            id: chatData.chatId,
+            folderId: chatData.folderId,
+            folderName: chatData.folderName,
+          })
+          
+          // Load existing messages for this chat
+          const messagesResponse = await fetch(`/api/chat/${chatData.chatId}/messages`)
+          if (messagesResponse.ok) {
+            const messagesData = await messagesResponse.json()
+            setMessages(messagesData.messages || [])
+          }
+        }
         
         // Fetch breadcrumbs
         const breadcrumbResponse = await fetch(`/api/google-drive/folders/${folderId}/breadcrumb`)
@@ -161,18 +197,48 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading || !chatSession) return
 
-    const userMessage = { role: "user", content: input }
-    setMessages((prev) => [...prev, userMessage])
+    const userMessage = input
     setInput("")
     setIsLoading(true)
 
     try {
-      // TODO: Implement chat API call
-      const response = { role: "assistant", content: "This is a placeholder response. The chat functionality will be implemented in later phases." }
-      setMessages((prev) => [...prev, response])
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userMessage,
+          folderId: folderId,
+          chatId: chatSession.id,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to send message')
+      }
+
+      const data = await response.json()
+      
+      // Reload messages from the server to get the updated conversation
+      const messagesResponse = await fetch(`/api/chat/${chatSession.id}/messages`)
+      if (messagesResponse.ok) {
+        const messagesData = await messagesResponse.json()
+        setMessages(messagesData.messages || [])
+      }
+      
     } catch (error) {
+      console.error('Error sending message:', error)
+      // Show error message to user
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
+        role: "assistant",
+        content: "Sorry, there was an error processing your message. Please try again.",
+        createdAt: new Date().toISOString(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
     }
@@ -322,25 +388,66 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
           {messages.length === 0 ? (
             <div className="text-center text-gray-500 mt-8">
               <p>Start a conversation by asking a question about the files in this folder</p>
+              {indexingStatus !== 'completed' && (
+                <p className="text-sm mt-2">Make sure your files are indexed to get the best responses!</p>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
-              {messages.map((message, index) => (
+              {messages.map((message) => (
                 <div
-                  key={index}
+                  key={message.id}
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  <div
-                    className={`max-w-2xl px-4 py-2 rounded-lg ${
-                      message.role === "user"
-                        ? "bg-indigo-600 text-white"
-                        : "bg-gray-200 text-gray-900"
-                    }`}
-                  >
-                    {message.content}
+                  <div className="max-w-2xl">
+                    <div
+                      className={`px-4 py-2 rounded-lg ${
+                        message.role === "user"
+                          ? "bg-indigo-600 text-white"
+                          : "bg-gray-200 text-gray-900"
+                      }`}
+                    >
+                      {message.content}
+                    </div>
+                    
+                    {/* Citations for AI responses */}
+                    {message.role === "assistant" && message.citations && message.citations.length > 0 && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        <p className="font-medium">Sources:</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {message.citations.map((citation, idx) => (
+                            <span 
+                              key={idx}
+                              className="bg-gray-100 px-2 py-1 rounded text-gray-700"
+                              title={`Relevance: ${(citation.score * 100).toFixed(1)}%`}
+                            >
+                              📄 {citation.fileName}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="text-xs text-gray-400 mt-1">
+                      {new Date(message.createdAt).toLocaleTimeString()}
+                    </div>
                   </div>
                 </div>
               ))}
+              
+              {/* Loading indicator */}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="max-w-2xl">
+                    <div className="bg-gray-200 text-gray-900 px-4 py-2 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                        <span>Thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
