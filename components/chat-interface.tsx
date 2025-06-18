@@ -169,7 +169,7 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
       setIsIndexing(true)
       setIndexingStatus('processing')
       
-      const response = await fetch(`/api/folders/${folderId}/index`, {
+      const response = await fetch(`/api/folders/${folderId}/index-assistant`, {
         method: 'POST',
       })
       
@@ -183,6 +183,7 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
         if (filesResponse.ok) {
           const data = await filesResponse.json()
           setFiles(data.files || [])
+          setFolder(data.folder) // Update folder object with new indexStatus
         }
       } else {
         setIndexingStatus('failed')
@@ -204,7 +205,7 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/chat-assistant', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

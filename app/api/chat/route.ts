@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       message,
       session.user.id,
       {
-        folderId: chat.folder.driveId,
+        folderId: chat.folder.id, // Use internal folder ID, not driveId
         topK: 5,
         minScore: 0.7,
       }
