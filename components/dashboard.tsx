@@ -41,6 +41,11 @@ export default function Dashboard() {
       const response = await fetch(url.toString())
       
       if (!response.ok) {
+        if (response.status === 401) {
+          // Authentication expired, redirect to sign in
+          window.location.href = "/auth/signin"
+          return
+        }
         console.error("Failed to fetch folders")
         return
       }

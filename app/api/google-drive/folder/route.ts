@@ -33,8 +33,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No Google access token found" }, { status: 400 })
     }
 
-    // Initialize Google Drive client
-    const oauth2Client = new google.auth.OAuth2()
+    // Initialize Google Drive client with proper configuration
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      `${process.env.NEXTAUTH_URL}/api/auth/callback/google`
+    )
+    
     oauth2Client.setCredentials({
       access_token: account.access_token,
       refresh_token: account.refresh_token,
