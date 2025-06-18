@@ -216,6 +216,7 @@ export async function GET(
           id: folder.id,
           name: folder.name,
           driveId: folder.driveId,
+          indexStatus: folder.indexStatus,
         },
         files: formattedFiles,
         subfolders: formattedSubfolders,

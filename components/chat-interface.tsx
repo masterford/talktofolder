@@ -40,6 +40,7 @@ interface FolderInfo {
   id: string
   name: string
   driveId: string
+  indexStatus?: string
 }
 
 export default function ChatInterface({ folderId }: ChatInterfaceProps) {
@@ -54,6 +55,8 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
   const [folder, setFolder] = useState<FolderInfo | null>(null)
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([])
   const [isLoadingFiles, setIsLoadingFiles] = useState(true)
+  const [isIndexing, setIsIndexing] = useState(false)
+  const [indexingStatus, setIndexingStatus] = useState<string>('pending')
   const profileMenuRef = useRef<HTMLDivElement>(null)
 
   // Fetch files and breadcrumbs when component mounts
@@ -75,12 +78,18 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
         setFiles(filesData.files || [])
         setSubfolders(filesData.subfolders || [])
         setFolder(filesData.folder)
+        setIndexingStatus(filesData.folder?.indexStatus || 'pending')
         
         // Fetch breadcrumbs
         const breadcrumbResponse = await fetch(`/api/google-drive/folders/${folderId}/breadcrumb`)
         if (breadcrumbResponse.ok) {
           const breadcrumbData = await breadcrumbResponse.json()
           setBreadcrumbs(breadcrumbData.breadcrumbs || [])
+        }
+
+        // Auto-index folder if not completed
+        if (filesData.folder?.indexStatus !== 'completed' && filesData.files?.length > 0) {
+          handleFolderIndex()
         }
       } catch (error) {
       } finally {
@@ -112,13 +121,22 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
     router.push(`/chat/${subfolderId}`)
   }
 
-  const handleFileIndex = async (fileId: string) => {
+  const handleFolderIndex = async () => {
+    if (isIndexing) return
+    
     try {
-      const response = await fetch(`/api/files/${fileId}/index`, {
+      setIsIndexing(true)
+      setIndexingStatus('processing')
+      
+      const response = await fetch(`/api/folders/${folderId}/index`, {
         method: 'POST',
       })
       
       if (response.ok) {
+        const result = await response.json()
+        setIndexingStatus(result.successCount > 0 && result.errorCount === 0 ? 'completed' : 
+                         result.successCount > 0 ? 'partial' : 'failed')
+        
         // Refresh the files list to show updated indexing status
         const filesResponse = await fetch(`/api/google-drive/folders/${folderId}/files`)
         if (filesResponse.ok) {
@@ -126,10 +144,13 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
           setFiles(data.files || [])
         }
       } else {
-        console.error('Failed to index file')
+        setIndexingStatus('failed')
       }
     } catch (error) {
-      console.error('Error indexing file:', error)
+      console.error('Error indexing folder:', error)
+      setIndexingStatus('failed')
+    } finally {
+      setIsIndexing(false)
     }
   }
 
@@ -168,9 +189,43 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
           </button>
           <BreadcrumbNavigation breadcrumbs={breadcrumbs} />
         </div>
-        <h2 className="text-lg font-semibold mb-4">
-          {folder ? `${folder.name} Files` : 'Sources'}
-        </h2>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold mb-2">
+            {folder ? `${folder.name} Files` : 'Sources'}
+          </h2>
+          
+          {/* Folder indexing status */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className={`px-2 py-1 rounded-full text-xs ${
+                indexingStatus === 'completed' ? 'bg-green-100 text-green-800' :
+                indexingStatus === 'processing' ? 'bg-blue-100 text-blue-800' :
+                indexingStatus === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                indexingStatus === 'failed' ? 'bg-red-100 text-red-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {indexingStatus === 'completed' ? 'Fully indexed' :
+                 indexingStatus === 'processing' ? 'Indexing...' :
+                 indexingStatus === 'partial' ? 'Partially indexed' :
+                 indexingStatus === 'failed' ? 'Indexing failed' :
+                 'Not indexed'}
+              </span>
+              
+              {isIndexing && (
+                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              )}
+            </div>
+            
+            {!isIndexing && files.length > 0 && (
+              <button
+                onClick={handleFolderIndex}
+                className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                {indexingStatus === 'completed' ? 'Re-index' : 'Index'}
+              </button>
+            )}
+          </div>
+        </div>
         <div className="space-y-2">
           {isLoadingFiles ? (
             <div className="flex items-center justify-center py-8">
@@ -191,7 +246,7 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
                 />
               ))}
               {files.map((file) => (
-                <FileListItem key={file.id} file={file} onIndex={handleFileIndex} />
+                <FileListItem key={file.id} file={file} />
               ))}
             </div>
           )}

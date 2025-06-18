@@ -9,10 +9,9 @@ interface FileListItemProps {
     iconLink?: string
     indexed?: boolean
   }
-  onIndex?: (fileId: string) => void
 }
 
-export default function FileListItem({ file, onIndex }: FileListItemProps) {
+export default function FileListItem({ file }: FileListItemProps) {
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes'
     const k = 1024
@@ -56,35 +55,12 @@ export default function FileListItem({ file, onIndex }: FileListItemProps) {
           </p>
           <p className="text-xs text-gray-500">
             {formatFileSize(file.size)} • {formatDate(file.modifiedTime)}
-            {file.indexed !== undefined && (
-              <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                file.indexed 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-yellow-100 text-yellow-800'
-              }`}>
-                {file.indexed ? 'Indexed' : 'Not indexed'}
-              </span>
-            )}
           </p>
         </div>
       </div>
       
       {/* Hover actions */}
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1">
-        {onIndex && !file.indexed && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onIndex(file.id)
-            }}
-            className="p-1 text-blue-400 hover:text-blue-600"
-            title="Index file"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 1.79 4 4 4h8c2.21 0 4-1.79 4-4V7M4 7c0-2.21 1.79-4 4-4h8c2.21 0 4-1.79 4-4M4 7h16m-1 4l-3 3m0 0l-3-3m3 3V8" />
-            </svg>
-          </button>
-        )}
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
         {file.webViewLink && (
           <a
             href={file.webViewLink}
