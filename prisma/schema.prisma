@@ -105,10 +105,11 @@ model Chunk {
 
 model Chat {
   id        String    @id @default(cuid())
-  folderId  String
+  folderId  String    @unique
   folder    Folder    @relation(fields: [folderId], references: [id])
   messages  Message[]
   createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt @default(now())
 }
 
 model Message {

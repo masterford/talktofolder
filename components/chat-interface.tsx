@@ -80,6 +80,11 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
         setFolder(filesData.folder)
         setIndexingStatus(filesData.folder?.indexStatus || 'pending')
         
+        // Create/access chat session to track folder access
+        const chatResponse = await fetch(`/api/folders/${folderId}/chat`, {
+          method: 'POST',
+        })
+        
         // Fetch breadcrumbs
         const breadcrumbResponse = await fetch(`/api/google-drive/folders/${folderId}/breadcrumb`)
         if (breadcrumbResponse.ok) {
@@ -87,8 +92,8 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
           setBreadcrumbs(breadcrumbData.breadcrumbs || [])
         }
 
-        // Auto-index folder if not completed
-        if (filesData.folder?.indexStatus !== 'completed' && filesData.files?.length > 0) {
+        // Auto-index folder only if it's never been indexed (pending status)
+        if (filesData.folder?.indexStatus === 'pending' && filesData.files?.length > 0) {
           handleFolderIndex()
         }
       } catch (error) {

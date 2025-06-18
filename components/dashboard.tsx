@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import FolderCard from "./folder-card"
+import RecentChatsCarousel from "./recent-chats-carousel"
 import { useRouter } from "next/navigation"
 
 interface Folder {
@@ -280,6 +281,16 @@ export default function Dashboard() {
             <p className="text-sm text-gray-500 mt-2">
               Or choose from your Google Drive folders below
             </p>
+          </div>
+        )}
+
+        {/* Recent Chats Section - Only show if Drive is connected */}
+        {isDriveConnected && (
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">Recent Chats</h3>
+            <div className="bg-white rounded-lg shadow p-6">
+              <RecentChatsCarousel />
+            </div>
           </div>
         )}
 
