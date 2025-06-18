@@ -174,15 +174,33 @@ export async function GET(
         )
       }
 
+      // Get indexed status for files from database
+      const dbFiles = await prisma.file.findMany({
+        where: {
+          folderId: folder.id,
+        },
+        select: {
+          driveId: true,
+          indexed: true,
+          id: true,
+        },
+      })
+
+      const indexStatusMap = new Map(
+        dbFiles.map(dbFile => [dbFile.driveId, { indexed: dbFile.indexed, id: dbFile.id }])
+      )
+
       // Format response
       const formattedFiles = supportedFiles.map(file => ({
-        id: file.id,
+        id: indexStatusMap.get(file.id!)?.id || file.id,
+        driveId: file.id,
         name: file.name,
         mimeType: file.mimeType,
         size: file.size || 0,
         modifiedTime: file.modifiedTime,
         webViewLink: file.webViewLink,
         iconLink: file.iconLink,
+        indexed: indexStatusMap.get(file.id!)?.indexed || false,
       }))
 
       // Format subfolders response

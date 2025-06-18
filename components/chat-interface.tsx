@@ -13,12 +13,14 @@ interface ChatInterfaceProps {
 
 interface FileInfo {
   id: string
+  driveId?: string
   name: string
   mimeType: string
   size: number
   modifiedTime: string
   webViewLink?: string
   iconLink?: string
+  indexed?: boolean
 }
 
 interface SubfolderInfo {
@@ -110,6 +112,27 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
     router.push(`/chat/${subfolderId}`)
   }
 
+  const handleFileIndex = async (fileId: string) => {
+    try {
+      const response = await fetch(`/api/files/${fileId}/index`, {
+        method: 'POST',
+      })
+      
+      if (response.ok) {
+        // Refresh the files list to show updated indexing status
+        const filesResponse = await fetch(`/api/google-drive/folders/${folderId}/files`)
+        if (filesResponse.ok) {
+          const data = await filesResponse.json()
+          setFiles(data.files || [])
+        }
+      } else {
+        console.error('Failed to index file')
+      }
+    } catch (error) {
+      console.error('Error indexing file:', error)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
@@ -168,7 +191,7 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
                 />
               ))}
               {files.map((file) => (
-                <FileListItem key={file.id} file={file} />
+                <FileListItem key={file.id} file={file} onIndex={handleFileIndex} />
               ))}
             </div>
           )}
