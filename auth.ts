@@ -11,9 +11,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: "openid email profile https://www.googleapis.com/auth/drive.readonly",
-          access_type: "offline",
-          prompt: "consent",
+          scope: "openid email profile",
+          prompt: "select_account",
         },
       },
     }),

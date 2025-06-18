@@ -44,6 +44,7 @@ plan.md
 implementation_plan_v1.md
 designs/
 CLAUDE.local.md
+checkpoints/
 
 /app/generated/prisma
 

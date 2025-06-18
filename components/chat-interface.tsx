@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 
@@ -14,6 +14,25 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const profileMenuRef = useRef<HTMLDivElement>(null)
+
+  // Handle click outside of profile menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleSignOut = () => {
+    // Redirect to sign out page which will handle cleanup
+    router.push('/auth/signout')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,11 +84,50 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
             <div className="flex items-center space-x-4">
               <button className="text-gray-600 hover:text-gray-900">Share</button>
               <button className="text-gray-600 hover:text-gray-900">Settings</button>
-              <img
-                className="h-8 w-8 rounded-full"
-                src={session?.user?.image || ""}
-                alt={session?.user?.name || "User"}
-              />
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  <img
+                    className="h-8 w-8 rounded-full"
+                    src={session?.user?.image || ""}
+                    alt={session?.user?.name || "User"}
+                  />
+                </button>
+
+                {/* Profile Dropdown Menu */}
+                {showProfileMenu && (
+                  <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                    <div className="py-1" role="menu">
+                      <div className="px-4 py-2 text-sm text-gray-700 border-b">
+                        <div className="font-medium">{session?.user?.name}</div>
+                        <div className="text-gray-500 text-xs truncate">{session?.user?.email}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowProfileMenu(false)
+                          router.push('/settings')
+                        }}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        role="menuitem"
+                      >
+                        Settings
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowProfileMenu(false)
+                          handleSignOut()
+                        }}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        role="menuitem"
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
