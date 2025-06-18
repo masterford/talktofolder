@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [hasMore, setHasMore] = useState(true)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   const fetchGoogleDriveFolders = useCallback(async (pageToken?: string) => {
     if (!pageToken) {
@@ -77,7 +78,8 @@ export default function Dashboard() {
     }
 
     observerRef.current = new IntersectionObserver(callback, {
-      rootMargin: '100px',
+      root: scrollContainerRef.current,
+      rootMargin: '50px',
     })
 
     if (loadMoreRef.current) {
@@ -113,8 +115,7 @@ export default function Dashboard() {
       // Add the new folder to the list
       setFolders((prev) => [...prev, data.folder])
       setSelectedFolderUrl("")
-      
-      // Optionally refresh the full list to ensure consistency
+
       fetchGoogleDriveFolders()
     } catch (error) {
       console.error("Error adding folder:", error)
@@ -182,41 +183,43 @@ export default function Dashboard() {
         {/* Folders Section */}
         <div>
           <h3 className="text-lg font-semibold mb-4">Your Google Drive Folders</h3>
-          {isLoading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-              <p className="text-gray-500 mt-2">Loading your folders...</p>
-            </div>
-          ) : folders.length === 0 && !hasMore ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No folders found in your Google Drive</p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {folders.map((folder) => (
-                  <FolderCard key={folder.driveId} folder={folder} />
-                ))}
+          <div className="bg-white rounded-lg shadow p-6">
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                <p className="text-gray-500 mt-2">Loading your folders...</p>
               </div>
-              
-              {/* Load More Trigger */}
-              {hasMore && (
-                <div 
-                  ref={loadMoreRef}
-                  className="text-center py-8"
-                >
-                  {isLoadingMore ? (
-                    <>
-                      <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                      <p className="text-gray-500 mt-2 text-sm">Loading more folders...</p>
-                    </>
-                  ) : (
-                    <p className="text-gray-400 text-sm">Scroll to load more</p>
-                  )}
+            ) : folders.length === 0 && !hasMore ? (
+              <div className="text-center py-12">
+                <p className="text-gray-500">No folders found in your Google Drive</p>
+              </div>
+            ) : (
+              <div ref={scrollContainerRef} className="max-h-126 overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pr-2">
+                  {folders.map((folder) => (
+                    <FolderCard key={folder.driveId} folder={folder} />
+                  ))}
                 </div>
-              )}
-            </>
-          )}
+                
+                {/* Load More Trigger */}
+                {hasMore && (
+                  <div 
+                    ref={loadMoreRef}
+                    className="text-center py-8"
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                        <p className="text-gray-500 mt-2 text-sm">Loading more folders...</p>
+                      </>
+                    ) : (
+                      <p className="text-gray-400 text-sm">Scroll to load more</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
