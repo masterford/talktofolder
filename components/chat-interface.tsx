@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
+import ReactMarkdown from "react-markdown"
 import FileListItem from "./file-list-item"
 import FolderListItem from "./folder-list-item"
 import BreadcrumbNavigation from "./breadcrumb-navigation"
@@ -202,6 +203,15 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
 
     const userMessage = input
     setInput("")
+    
+    // Add user message immediately to UI
+    const tempUserMessage: Message = {
+      id: `temp-user-${Date.now()}`,
+      role: "user",
+      content: userMessage,
+      createdAt: new Date().toISOString(),
+    }
+    setMessages((prev) => [...prev, tempUserMessage])
     setIsLoading(true)
 
     try {
@@ -408,7 +418,27 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
                           : "bg-gray-200 text-gray-900"
                       }`}
                     >
-                      {message.content}
+                      {message.role === "assistant" ? (
+                        <div className="prose prose-sm max-w-none prose-gray">
+                          <ReactMarkdown 
+                            components={{
+                              // Customize markdown rendering for better styling
+                              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                              ul: ({ children }) => <ul className="mb-2 pl-4 list-disc">{children}</ul>,
+                              ol: ({ children }) => <ol className="mb-2 pl-4 list-decimal">{children}</ol>,
+                              li: ({ children }) => <li className="mb-1">{children}</li>,
+                              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                              em: ({ children }) => <em className="italic">{children}</em>,
+                              code: ({ children }) => <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">{children}</code>,
+                              pre: ({ children }) => <pre className="bg-gray-100 p-2 rounded text-sm font-mono overflow-x-auto">{children}</pre>,
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        message.content
+                      )}
                     </div>
                     
                     {/* Citations for AI responses */}
