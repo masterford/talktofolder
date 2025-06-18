@@ -293,7 +293,7 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask a question or make a request..."
-              className="flex-1 border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 border border-gray-300 rounded-md px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               disabled={isLoading}
             />
             <button
