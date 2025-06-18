@@ -261,14 +261,14 @@ export default function Dashboard() {
         {/* Add Specific Folder Section - Only show if Drive is connected */}
         {isDriveConnected && (
           <div className="bg-white rounded-lg shadow p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4">Add a Specific Folder</h2>
+            <h2 className="text-xl font-semibold mb-4 text-gray-900">Add a Specific Folder</h2>
             <div className="flex items-center space-x-4">
               <input
                 type="text"
                 value={selectedFolderUrl}
                 onChange={(e) => setSelectedFolderUrl(e.target.value)}
                 placeholder="Paste Google Drive folder link"
-                className="flex-1 border border-gray-300 rounded-md px-3 py-2"
+                className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
               />
               <button
                 onClick={handleAddSpecificFolder}
@@ -285,7 +285,7 @@ export default function Dashboard() {
 
         {/* Folders Section */}
         <div>
-          <h3 className="text-lg font-semibold mb-4">Your Google Drive Folders</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-900">Your Google Drive Folders</h3>
           <div className="bg-white rounded-lg shadow p-6">
             {isCheckingDriveStatus ? (
               <div className="text-center py-12">
