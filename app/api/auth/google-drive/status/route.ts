@@ -24,7 +24,7 @@ export async function GET() {
 
     const hasDriveAccess = !!(
       account?.access_token && 
-      account?.scope?.includes('drive.readonly')
+      account?.scope?.includes('https://www.googleapis.com/auth/drive.readonly')
     )
 
     return NextResponse.json({ 

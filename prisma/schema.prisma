@@ -65,8 +65,11 @@ model Folder {
   id          String    @id @default(cuid())
   userId      String
   user        User      @relation(fields: [userId], references: [id])
-  driveId     String
+  driveId     String    @unique
   name        String
+  parentId    String?
+  parent      Folder?   @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children    Folder[]  @relation("FolderHierarchy")
   lastIndexed DateTime?
   indexStatus String    @default("pending")
   files       File[]
@@ -79,7 +82,7 @@ model File {
   id           String   @id @default(cuid())
   folderId     String
   folder       Folder   @relation(fields: [folderId], references: [id])
-  driveId      String
+  driveId      String   @unique
   name         String
   mimeType     String
   size         BigInt

@@ -9,6 +9,7 @@ export async function GET(request: Request) {
     const state = searchParams.get("state") // This is the user ID
     const error = searchParams.get("error")
 
+
     if (error) {
       return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=drive_access_denied`)
     }
@@ -25,23 +26,23 @@ export async function GET(request: Request) {
 
     // Exchange code for tokens
     const { tokens } = await oauth2Client.getToken(code)
-    oauth2Client.setCredentials(tokens)
 
-    // Get the Google account info to find the right account record
-    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client })
-    const { data: userInfo } = await oauth2.userinfo.get()
+    // Find the user's account by user ID (from state) instead of using userinfo
+    const userAccount = await prisma.account.findFirst({
+      where: {
+        userId: state,
+        provider: "google",
+      },
+    })
 
-    if (!userInfo.id) {
-      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=no_google_id`)
+    if (!userAccount) {
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=no_account_found`)
     }
 
     // Update the existing account with Drive tokens
     await prisma.account.update({
       where: {
-        provider_providerAccountId: {
-          provider: "google",
-          providerAccountId: userInfo.id,
-        },
+        id: userAccount.id,
       },
       data: {
         access_token: tokens.access_token,
@@ -61,7 +62,6 @@ export async function GET(request: Request) {
 
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?drive_connected=true`)
   } catch (error) {
-    console.error("Error in Google Drive callback:", error)
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=drive_connection_failed`)
   }
 }

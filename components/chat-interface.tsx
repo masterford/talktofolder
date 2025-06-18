@@ -3,9 +3,41 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
+import FileListItem from "./file-list-item"
+import FolderListItem from "./folder-list-item"
+import BreadcrumbNavigation from "./breadcrumb-navigation"
 
 interface ChatInterfaceProps {
   folderId: string
+}
+
+interface FileInfo {
+  id: string
+  name: string
+  mimeType: string
+  size: number
+  modifiedTime: string
+  webViewLink?: string
+  iconLink?: string
+}
+
+interface SubfolderInfo {
+  id: string
+  name: string
+  mimeType: string
+  modifiedTime: string
+}
+
+interface BreadcrumbItem {
+  id: string
+  name: string
+  isRoot: boolean
+}
+
+interface FolderInfo {
+  id: string
+  name: string
+  driveId: string
 }
 
 export default function ChatInterface({ folderId }: ChatInterfaceProps) {
@@ -15,7 +47,47 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const [files, setFiles] = useState<FileInfo[]>([])
+  const [subfolders, setSubfolders] = useState<SubfolderInfo[]>([])
+  const [folder, setFolder] = useState<FolderInfo | null>(null)
+  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([])
+  const [isLoadingFiles, setIsLoadingFiles] = useState(true)
   const profileMenuRef = useRef<HTMLDivElement>(null)
+
+  // Fetch files and breadcrumbs when component mounts
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoadingFiles(true)
+        
+        // Fetch files and folders
+        const filesResponse = await fetch(`/api/google-drive/folders/${folderId}/files`)
+        if (!filesResponse.ok) {
+          if (filesResponse.status === 401) {
+            router.push('/auth/signin')
+            return
+          }
+          return
+        }
+        const filesData = await filesResponse.json()
+        setFiles(filesData.files || [])
+        setSubfolders(filesData.subfolders || [])
+        setFolder(filesData.folder)
+        
+        // Fetch breadcrumbs
+        const breadcrumbResponse = await fetch(`/api/google-drive/folders/${folderId}/breadcrumb`)
+        if (breadcrumbResponse.ok) {
+          const breadcrumbData = await breadcrumbResponse.json()
+          setBreadcrumbs(breadcrumbData.breadcrumbs || [])
+        }
+      } catch (error) {
+      } finally {
+        setIsLoadingFiles(false)
+      }
+    }
+
+    fetchData()
+  }, [folderId, router])
 
   // Handle click outside of profile menu
   useEffect(() => {
@@ -34,6 +106,10 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
     router.push('/auth/signout')
   }
 
+  const handleFolderClick = (subfolderId: string) => {
+    router.push(`/chat/${subfolderId}`)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading) return
@@ -48,7 +124,6 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
       const response = { role: "assistant", content: "This is a placeholder response. The chat functionality will be implemented in later phases." }
       setMessages((prev) => [...prev, response])
     } catch (error) {
-      console.error("Error sending message:", error)
     } finally {
       setIsLoading(false)
     }
@@ -61,17 +136,42 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
         <div className="mb-4">
           <button
             onClick={() => router.push("/")}
-            className="text-gray-600 hover:text-gray-900 flex items-center"
+            className="text-gray-600 hover:text-gray-900 flex items-center mb-2"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
             Back to Folders
           </button>
+          <BreadcrumbNavigation breadcrumbs={breadcrumbs} />
         </div>
-        <h2 className="text-lg font-semibold mb-4">Sources</h2>
+        <h2 className="text-lg font-semibold mb-4">
+          {folder ? `${folder.name} Files` : 'Sources'}
+        </h2>
         <div className="space-y-2">
-          <p className="text-sm text-gray-500">Files will appear here once the folder is indexed</p>
+          {isLoadingFiles ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : files.length === 0 && subfolders.length === 0 ? (
+            <div className="text-sm text-gray-500">
+              <p>No supported files found in this folder</p>
+              <p className="text-xs mt-1">Supported: Documents, PDFs, CSV/Sheets</p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {subfolders.map((subfolder) => (
+                <FolderListItem 
+                  key={subfolder.id} 
+                  folder={subfolder} 
+                  onFolderClick={handleFolderClick}
+                />
+              ))}
+              {files.map((file) => (
+                <FileListItem key={file.id} file={file} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -80,7 +180,9 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
         {/* Header */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-xl font-semibold">Chat</h1>
+            <h1 className="text-xl font-semibold">
+              {folder ? `Chat with ${folder.name}` : 'Chat'}
+            </h1>
             <div className="flex items-center space-x-4">
               <button className="text-gray-600 hover:text-gray-900">Share</button>
               <button className="text-gray-600 hover:text-gray-900">Settings</button>
