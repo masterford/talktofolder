@@ -12,28 +12,33 @@ interface RecentChat {
   lastAccessed: string
 }
 
-export default function RecentChatsCarousel() {
+interface RecentChatsCarouselProps {
+  refreshTrigger?: number
+}
+
+export default function RecentChatsCarousel({ refreshTrigger }: RecentChatsCarouselProps = {}) {
   const [recentChats, setRecentChats] = useState<RecentChat[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => {
-    const fetchRecentChats = async () => {
-      try {
-        const response = await fetch('/api/chats/recent')
-        if (response.ok) {
-          const data = await response.json()
-          setRecentChats(data.chats || [])
-        }
-      } catch (error) {
-        console.error('Error fetching recent chats:', error)
-      } finally {
-        setIsLoading(false)
+  const fetchRecentChats = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/chats/recent')
+      if (response.ok) {
+        const data = await response.json()
+        setRecentChats(data.chats || [])
       }
+    } catch (error) {
+      console.error('Error fetching recent chats:', error)
+    } finally {
+      setIsLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchRecentChats()
-  }, [])
+  }, [refreshTrigger])
 
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString)

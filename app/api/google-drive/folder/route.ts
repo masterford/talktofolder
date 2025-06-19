@@ -70,15 +70,34 @@ export async function POST(request: Request) {
 
       const fileCount = filesResponse.data.files?.length || 0
 
-      // Save folder to database
-      const savedFolder = await prisma.folder.create({
-        data: {
+      // Check if folder already exists
+      let savedFolder = await prisma.folder.findFirst({
+        where: {
           userId: session.user.id,
           driveId: folder.id!,
-          name: folder.name!,
-          indexStatus: "pending",
         },
       })
+
+      if (savedFolder) {
+        // Update existing folder
+        savedFolder = await prisma.folder.update({
+          where: { id: savedFolder.id },
+          data: {
+            name: folder.name!,
+            indexStatus: savedFolder.indexStatus === "completed" ? "completed" : "pending",
+          },
+        })
+      } else {
+        // Create new folder
+        savedFolder = await prisma.folder.create({
+          data: {
+            userId: session.user.id,
+            driveId: folder.id!,
+            name: folder.name!,
+            indexStatus: "pending",
+          },
+        })
+      }
 
       return NextResponse.json({
         folder: {

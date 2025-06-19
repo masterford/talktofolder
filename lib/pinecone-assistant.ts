@@ -44,8 +44,7 @@ export class PineconeAssistantService {
         })
         
         console.log('Assistant created, waiting for readiness...')
-        // Wait a bit longer for assistant to be ready (as per Pinecone docs)
-        await new Promise(resolve => setTimeout(resolve, 10000))
+        await new Promise(resolve => setTimeout(resolve, 1000))
         
         return { assistant: pinecone.Assistant(assistantName), existed: false, assistantName }
       } catch (createError) {

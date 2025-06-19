@@ -22,11 +22,13 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [selectedFolderUrl, setSelectedFolderUrl] = useState("")
+  const [folderUrlError, setFolderUrlError] = useState("")
   const [nextPageToken, setNextPageToken] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(true)
   const [isDriveConnected, setIsDriveConnected] = useState(false)
   const [isCheckingDriveStatus, setIsCheckingDriveStatus] = useState(true)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const [recentChatsRefreshTrigger, setRecentChatsRefreshTrigger] = useState(0)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -178,18 +180,49 @@ export default function Dashboard() {
       const data = await response.json()
 
       if (!response.ok) {
-        alert(data.error || "Failed to add folder")
+        setFolderUrlError(data.error || "Failed to add folder")
         return
       }
 
       // Add the new folder to the list
       setFolders((prev) => [...prev, data.folder])
       setSelectedFolderUrl("")
+      setFolderUrlError("")
+
+      // Create or get chat for this folder
+      const chatResponse = await fetch(`/api/folders/${data.folder.driveId}/chat`, {
+        method: "POST",
+      })
+
+      if (!chatResponse.ok) {
+        console.error("Failed to create chat for folder")
+      } else {
+        // Trigger refresh of recent chats
+        setRecentChatsRefreshTrigger(prev => prev + 1)
+      }
+
+      // Fetch files for the folder to save them in the database
+      const filesResponse = await fetch(`/api/google-drive/folders/${data.folder.driveId}/files`)
+      
+      if (filesResponse.ok) {
+        await filesResponse.json() // This ensures files are saved to the database
+        
+        // Trigger indexing for the folder in the background (don't wait for it)
+        fetch(`/api/folders/${data.folder.driveId}/index-assistant`, {
+          method: "POST",
+        }).then(response => {
+          if (!response.ok) {
+            console.error("Failed to start indexing in background")
+          }
+        }).catch(error => {
+          console.error("Error starting background indexing:", error)
+        })
+      }
 
       fetchGoogleDriveFolders()
     } catch (error) {
       console.error("Error adding folder:", error)
-      alert("Failed to add folder")
+      setFolderUrlError("Failed to add folder")
     }
   }
 
@@ -271,9 +304,14 @@ export default function Dashboard() {
               <input
                 type="text"
                 value={selectedFolderUrl}
-                onChange={(e) => setSelectedFolderUrl(e.target.value)}
+                onChange={(e) => {
+                  setSelectedFolderUrl(e.target.value)
+                  setFolderUrlError("")
+                }}
                 placeholder="Paste Google Drive folder link"
-                className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+                className={`flex-1 border rounded-md px-3 py-2 text-gray-900 ${
+                  folderUrlError ? "border-red-500" : "border-gray-300"
+                }`}
               />
               <button
                 onClick={handleAddSpecificFolder}
@@ -282,6 +320,9 @@ export default function Dashboard() {
                 Add Folder
               </button>
             </div>
+            {folderUrlError && (
+              <p className="text-sm text-red-600 mt-2">{folderUrlError}</p>
+            )}
             <p className="text-sm text-gray-500 mt-2">
               Or choose from your Google Drive folders below
             </p>
@@ -293,7 +334,7 @@ export default function Dashboard() {
           <div className="mb-8">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">Recent Chats</h3>
             <div className="bg-white rounded-lg shadow p-6">
-              <RecentChatsCarousel />
+              <RecentChatsCarousel refreshTrigger={recentChatsRefreshTrigger} />
             </div>
           </div>
         )}
