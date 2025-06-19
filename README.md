@@ -2,6 +2,10 @@
 
 TalkToFolder allows you to connect your Google Drive folders and chat with an AI assistant about the contents of your files. Simply authenticate with Google, select or add a folder, and start asking questions about your documents.
 
+# Demo
+Try a live demo here: https://talktofolder-masterfords-projects.vercel.app/
+Note: The demo is using a free Pinecone account, so it has some limitations. You can try it out, but might take a few seconds longer for the assistant to index your documents. Do not chat with any sensitive folders as the demo is tied to my Pinecone account, run it locally for full security isolation.
+
 ## Features
 
 - 🔐 **Google OAuth Integration** - Secure authentication with Google Drive
