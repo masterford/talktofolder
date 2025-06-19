@@ -40,6 +40,21 @@ export default function RecentChatsCarousel({ refreshTrigger }: RecentChatsCarou
     fetchRecentChats()
   }, [refreshTrigger])
 
+  // Poll for status updates every 5 seconds for pending/processing folders
+  useEffect(() => {
+    const hasPendingOrProcessing = recentChats.some(
+      chat => chat.indexStatus === 'pending' || chat.indexStatus === 'processing'
+    )
+    
+    if (!hasPendingOrProcessing) return
+
+    const interval = setInterval(() => {
+      fetchRecentChats()
+    }, 5000) // Poll every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [recentChats])
+
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString)
     const now = new Date()
