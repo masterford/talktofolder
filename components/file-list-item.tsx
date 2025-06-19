@@ -9,9 +9,10 @@ interface FileListItemProps {
     iconLink?: string
     indexed?: boolean
   }
+  onClick?: () => void
 }
 
-export default function FileListItem({ file }: FileListItemProps) {
+export default function FileListItem({ file, onClick }: FileListItemProps) {
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes'
     const k = 1024
@@ -32,6 +33,8 @@ export default function FileListItem({ file }: FileListItemProps) {
     // Other file types
     if (mimeType.includes('pdf')) return '📕'
     if (mimeType.includes('csv')) return '📊'
+    if (mimeType.includes('markdown') || file.name?.endsWith('.md')) return '📝'
+    if (mimeType.includes('text')) return '📝'
     
     return '📋'
   }
@@ -46,7 +49,10 @@ export default function FileListItem({ file }: FileListItemProps) {
   }
 
   return (
-    <div className="group relative p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
+    <div 
+      className="group relative p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+      onClick={onClick}
+    >
       <div className="flex items-start space-x-3">
         <span className="text-2xl flex-shrink-0">{getFileIcon(file.mimeType)}</span>
         <div className="flex-1 min-w-0">

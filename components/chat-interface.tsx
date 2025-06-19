@@ -7,6 +7,8 @@ import ReactMarkdown from "react-markdown"
 import FileListItem from "./file-list-item"
 import FolderListItem from "./folder-list-item"
 import BreadcrumbNavigation from "./breadcrumb-navigation"
+import SidePanel from "./side-panel"
+import { HiChevronLeft, HiChevronRight } from "react-icons/hi2"
 
 interface ChatInterfaceProps {
   folderId: string
@@ -78,6 +80,8 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
   const [isLoadingFiles, setIsLoadingFiles] = useState(true)
   const [isIndexing, setIsIndexing] = useState(false)
   const [indexingStatus, setIndexingStatus] = useState<string>('pending')
+  const [selectedFile, setSelectedFile] = useState<{ id: string; name: string; mimeType: string; webViewLink?: string } | null>(null)
+  const [isSourcePanelCollapsed, setIsSourcePanelCollapsed] = useState(false)
   const profileMenuRef = useRef<HTMLDivElement>(null)
 
   // Fetch files and breadcrumbs when component mounts
@@ -161,6 +165,15 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
 
   const handleFolderClick = (subfolderId: string) => {
     router.push(`/chat/${subfolderId}`)
+  }
+
+  const handleFileClick = (file: FileInfo) => {
+    setSelectedFile({
+      id: file.driveId || file.id,
+      name: file.name,
+      mimeType: file.mimeType,
+      webViewLink: file.webViewLink,
+    })
   }
 
   const handleFolderIndex = async () => {
@@ -258,7 +271,8 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className="w-80 bg-white border-r border-gray-200 p-4 overflow-y-auto">
+      <div className={`${isSourcePanelCollapsed ? 'w-12' : 'w-80'} bg-white border-r border-gray-200 overflow-hidden transition-all duration-300 relative flex-shrink-0`}>
+        <div className={`p-4 overflow-y-auto h-full ${isSourcePanelCollapsed ? 'invisible' : 'visible'}`}>
         <div className="mb-4">
           <button
             onClick={() => router.push("/")}
@@ -328,12 +342,42 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
                 />
               ))}
               {files.map((file) => (
-                <FileListItem key={file.id} file={file} />
+                <FileListItem 
+                  key={file.id} 
+                  file={file} 
+                  onClick={() => handleFileClick(file)}
+                />
               ))}
             </div>
           )}
         </div>
+        </div>
+        
+        {/* Collapse/Expand Button */}
+        <button
+          onClick={() => setIsSourcePanelCollapsed(!isSourcePanelCollapsed)}
+          className={`absolute top-4 ${isSourcePanelCollapsed ? 'left-1/2 -translate-x-1/2' : 'right-4'} bg-gray-100 hover:bg-gray-200 rounded p-1.5 transition-all duration-300`}
+          title={isSourcePanelCollapsed ? "Expand sources" : "Collapse sources"}
+        >
+          {isSourcePanelCollapsed ? (
+            <HiChevronRight className="w-4 h-4 text-gray-600" />
+          ) : (
+            <HiChevronLeft className="w-4 h-4 text-gray-600" />
+          )}
+        </button>
       </div>
+
+      {/* Side Panel */}
+      {selectedFile && (
+        <SidePanel
+          fileId={selectedFile.id}
+          fileName={selectedFile.name}
+          mimeType={selectedFile.mimeType}
+          webViewLink={selectedFile.webViewLink || null}
+          isExpanded={isSourcePanelCollapsed}
+          onClose={() => setSelectedFile(null)}
+        />
+      )}
 
       {/* Chat Area */}
       <div className="flex-1 flex flex-col">
