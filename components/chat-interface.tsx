@@ -86,6 +86,8 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
   const [sidePanelWidth, setSidePanelWidth] = useState(384) // 96 * 4 = 384px (w-96)
   const [isResizing, setIsResizing] = useState<'source' | 'side' | null>(null)
   const [showProcessingNotification, setShowProcessingNotification] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const profileMenuRef = useRef<HTMLDivElement>(null)
 
   // Fetch files and breadcrumbs when component mounts
@@ -283,6 +285,31 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
       setIndexingStatus('failed')
     } finally {
       setIsIndexing(false)
+    }
+  }
+
+  const handleDeleteChat = async () => {
+    if (!chatSession || isDeleting) return
+    
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/chat/${chatSession.id}`, {
+        method: 'DELETE',
+      })
+      
+      if (response.ok) {
+        // Redirect to home page after successful deletion
+        router.push('/')
+      } else {
+        console.error('Failed to delete chat')
+        alert('Failed to delete chat. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error)
+      alert('Failed to delete chat. Please try again.')
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteConfirm(false)
     }
   }
 
@@ -504,6 +531,15 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
               {folder ? `Chat with ${folder.name}` : 'Chat'}
             </h1>
             <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => setShowDeleteConfirm(true)}
+                className="text-red-600 hover:text-red-800"
+                title="Delete this chat"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
               <button className="text-gray-600 hover:text-gray-900">Share</button>
               <button className="text-gray-600 hover:text-gray-900">Settings</button>
               <div className="relative" ref={profileMenuRef}>
@@ -658,6 +694,34 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
               </div>
               <div className="text-sm text-blue-800">
                 Please wait up to 10 seconds for files to be fully processed
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">Delete Chat?</h3>
+              <p className="text-gray-600 mb-6">
+                This will permanently delete this chat, all messages, and remove the indexed files. This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteChat}
+                  className="px-4 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete Chat"}
+                </button>
               </div>
             </div>
           </div>
