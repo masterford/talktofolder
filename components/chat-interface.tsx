@@ -82,6 +82,9 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
   const [indexingStatus, setIndexingStatus] = useState<string>('pending')
   const [selectedFile, setSelectedFile] = useState<{ id: string; name: string; mimeType: string; webViewLink?: string } | null>(null)
   const [isSourcePanelCollapsed, setIsSourcePanelCollapsed] = useState(false)
+  const [sourcePanelWidth, setSourcePanelWidth] = useState(320) // 80 * 4 = 320px (w-80)
+  const [sidePanelWidth, setSidePanelWidth] = useState(384) // 96 * 4 = 384px (w-96)
+  const [isResizing, setIsResizing] = useState<'source' | 'side' | null>(null)
   const profileMenuRef = useRef<HTMLDivElement>(null)
 
   // Fetch files and breadcrumbs when component mounts
@@ -157,6 +160,68 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Handle panel resizing
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return
+      
+      e.preventDefault()
+      e.stopPropagation()
+
+      if (isResizing === 'source') {
+        const newWidth = Math.max(200, Math.min(600, e.clientX))
+        setSourcePanelWidth(newWidth)
+      } else if (isResizing === 'side') {
+        const sourceWidth = isSourcePanelCollapsed ? 48 : sourcePanelWidth
+        const minSideWidth = 300
+        const maxSideWidth = window.innerWidth - sourceWidth - 400 // Leave 400px for chat
+        const newWidth = Math.max(minSideWidth, Math.min(maxSideWidth, e.clientX - sourceWidth))
+        setSidePanelWidth(newWidth)
+      }
+    }
+
+    const handleMouseUp = (e: MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsResizing(null)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.body.style.pointerEvents = ''
+    }
+
+    const handleMouseLeave = () => {
+      if (isResizing) {
+        setIsResizing(null)
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+        document.body.style.pointerEvents = ''
+      }
+    }
+
+    if (isResizing) {
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+      document.body.style.pointerEvents = 'none'
+      
+      document.addEventListener('mousemove', handleMouseMove, { passive: false })
+      document.addEventListener('mouseup', handleMouseUp, { passive: false })
+      document.addEventListener('mouseleave', handleMouseLeave)
+      // Also listen for when mouse leaves the window
+      window.addEventListener('blur', handleMouseLeave)
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mouseleave', handleMouseLeave)
+      window.removeEventListener('blur', handleMouseLeave)
+      // Reset styles on cleanup
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.body.style.pointerEvents = ''
+    }
+  }, [isResizing, sourcePanelWidth, isSourcePanelCollapsed])
 
   const handleSignOut = () => {
     // Redirect to sign out page which will handle cleanup
@@ -271,7 +336,10 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <div className={`${isSourcePanelCollapsed ? 'w-12' : 'w-80'} bg-white border-r border-gray-200 overflow-hidden transition-all duration-300 relative flex-shrink-0`}>
+      <div 
+        className={`bg-white border-r border-gray-200 overflow-hidden relative flex-shrink-0 ${isResizing ? '' : 'transition-all duration-300'}`}
+        style={{ width: isSourcePanelCollapsed ? '48px' : `${sourcePanelWidth}px` }}
+      >
         <div className={`p-4 overflow-y-auto h-full ${isSourcePanelCollapsed ? 'invisible' : 'visible'}`}>
         <div className="mb-4">
           <button
@@ -367,16 +435,53 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
         </button>
       </div>
 
+      {/* Source Panel Resize Handle */}
+      {!isSourcePanelCollapsed && (
+        <div
+          className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize flex-shrink-0 relative group"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setIsResizing('source')
+          }}
+          onMouseUp={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
+        >
+          <div className="absolute inset-0 w-2 -translate-x-0.5 group-hover:bg-blue-400/20" />
+        </div>
+      )}
+
       {/* Side Panel */}
       {selectedFile && (
-        <SidePanel
-          fileId={selectedFile.id}
-          fileName={selectedFile.name}
-          mimeType={selectedFile.mimeType}
-          webViewLink={selectedFile.webViewLink || null}
-          isExpanded={isSourcePanelCollapsed}
-          onClose={() => setSelectedFile(null)}
-        />
+        <>
+          <SidePanel
+            fileId={selectedFile.id}
+            fileName={selectedFile.name}
+            mimeType={selectedFile.mimeType}
+            webViewLink={selectedFile.webViewLink || null}
+            width={sidePanelWidth}
+            isResizing={isResizing === 'side'}
+            onClose={() => setSelectedFile(null)}
+          />
+          
+          {/* Side Panel Resize Handle */}
+          <div
+            className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize flex-shrink-0 relative group"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsResizing('side')
+            }}
+            onMouseUp={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+          >
+            <div className="absolute inset-0 w-2 -translate-x-0.5 group-hover:bg-blue-400/20" />
+          </div>
+        </>
       )}
 
       {/* Chat Area */}

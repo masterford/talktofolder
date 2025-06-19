@@ -7,11 +7,12 @@ interface SidePanelProps {
   fileName: string | null
   mimeType: string | null
   webViewLink: string | null
-  isExpanded?: boolean
+  width: number
+  isResizing?: boolean
   onClose: () => void
 }
 
-export default function SidePanel({ fileId, fileName, mimeType, webViewLink, isExpanded = false, onClose }: SidePanelProps) {
+export default function SidePanel({ fileId, fileName, mimeType, webViewLink, width, isResizing = false, onClose }: SidePanelProps) {
   const [isLoading, setIsLoading] = useState(true)
 
   if (!fileId || !webViewLink) return null
@@ -28,7 +29,10 @@ export default function SidePanel({ fileId, fileName, mimeType, webViewLink, isE
 
 
   return (
-    <div className={`${isExpanded ? 'flex-1' : 'w-96'} bg-white border-r border-gray-200 flex flex-col h-full transition-all duration-300`}>
+    <div 
+      className={`bg-white border-r border-gray-200 flex flex-col h-full flex-shrink-0 ${isResizing ? '' : 'transition-all duration-300'}`}
+      style={{ width: `${width}px` }}
+    >
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center space-x-2 flex-1 min-w-0">
