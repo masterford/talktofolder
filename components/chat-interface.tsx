@@ -505,6 +505,8 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
                       className="h-8 w-8 rounded-full"
                       src={session.user.image}
                       alt={session?.user?.name || "User"}
+                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none'
                         e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex')
@@ -527,16 +529,6 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
                         <div className="font-medium">{session?.user?.name}</div>
                         <div className="text-gray-500 text-xs truncate">{session?.user?.email}</div>
                       </div>
-                      <button
-                        onClick={() => {
-                          setShowProfileMenu(false)
-                          router.push('/settings')
-                        }}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        role="menuitem"
-                      >
-                        Settings
-                      </button>
                       <button
                         onClick={() => {
                           setShowProfileMenu(false)

@@ -16,7 +16,7 @@ interface Folder {
 }
 
 export default function Dashboard() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const [folders, setFolders] = useState<Folder[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -213,11 +213,25 @@ export default function Dashboard() {
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
                   className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  <img
-                    className="h-8 w-8 rounded-full"
-                    src={session?.user?.image || ""}
-                    alt={session?.user?.name || "User"}
-                  />
+                  {session?.user?.image ? (
+                    <img
+                      className="h-8 w-8 rounded-full"
+                      src={session.user.image}
+                      alt={session?.user?.name || "User"}
+                      referrerPolicy="no-referrer"
+                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                        e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex')
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-sm font-medium"
+                    style={{ display: session?.user?.image ? 'none' : 'flex' }}
+                  >
+                    {session?.user?.name?.charAt(0)?.toUpperCase() || session?.user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
                 </button>
 
                 {/* Profile Dropdown Menu */}
@@ -228,16 +242,6 @@ export default function Dashboard() {
                         <div className="font-medium">{session?.user?.name}</div>
                         <div className="text-gray-500 text-xs truncate">{session?.user?.email}</div>
                       </div>
-                      <button
-                        onClick={() => {
-                          setShowProfileMenu(false)
-                          router.push('/settings')
-                        }}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        role="menuitem"
-                      >
-                        Settings
-                      </button>
                       <button
                         onClick={() => {
                           setShowProfileMenu(false)

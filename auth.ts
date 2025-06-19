@@ -31,6 +31,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token
     },
+    async signIn({ user, account, profile }) {
+      // Ensure profile image is saved from Google
+      if (account?.provider === "google" && profile?.picture && user.id) {
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { 
+              image: profile.picture,
+              name: profile.name || user.name,
+            }
+          })
+        } catch (error) {
+          console.error("Error updating user profile image:", error)
+        }
+      }
+      return true
+    },
   },
   pages: {
     signIn: "/auth/signin",
