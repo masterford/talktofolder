@@ -194,4 +194,134 @@ export class PineconeAssistantService {
       throw error
     }
   }
+
+  async deleteFilesForFolder(userId: string, folderId: string) {
+    const { assistant } = await this.createOrGetAssistant(userId)
+    
+    try {
+      // List all files
+      const filesList = await assistant.listFiles()
+      const files = filesList.files || []
+      
+      // Filter files that belong to this folder (check metadata)
+      const folderFiles = files.filter((file: any) => {
+        return file.metadata?.folderId === folderId || 
+               (file.metadata?.batchFileName && file.metadata.folderId === folderId)
+      })
+      
+      console.log(`Found ${folderFiles.length} files to delete for folder ${folderId}`)
+      
+      // Delete each file
+      for (const file of folderFiles) {
+        try {
+          await assistant.deleteFile(file.id)
+          console.log(`Deleted file ${file.name} (${file.id})`)
+        } catch (error) {
+          console.error(`Error deleting file ${file.name}:`, error)
+        }
+      }
+      
+      return folderFiles.length
+    } catch (error) {
+      console.error('Error deleting files for folder:', error)
+      throw error
+    }
+  }
+
+  async uploadBatchedContent(
+    userId: string,
+    folderId: string,
+    files: Array<{ fileName: string; content: string; metadata?: Record<string, any> }>
+  ) {
+    const { assistant } = await this.createOrGetAssistant(userId)
+    
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+    const batches: Array<{ content: string; fileName: string; fileNames: string[] }> = []
+    let currentBatch = { content: '', fileName: '', fileNames: [] as string[] }
+    let currentSize = 0
+    let batchNumber = 1
+
+    // Process files and create batches
+    for (const file of files) {
+      if (!file.content.trim()) continue
+
+      // Format content with file name as heading
+      const formattedContent = `\n\n=== FILE: ${file.fileName} ===\n\n${file.content}\n`
+      const contentSize = new TextEncoder().encode(formattedContent).length
+
+      // If adding this file would exceed the limit, start a new batch
+      if (currentSize > 0 && currentSize + contentSize > MAX_SIZE_BYTES) {
+        currentBatch.fileName = `folder_${folderId}_batch_${batchNumber}.txt`
+        batches.push({ ...currentBatch })
+        batchNumber++
+        currentBatch = { content: '', fileName: '', fileNames: [] }
+        currentSize = 0
+      }
+
+      // Add file to current batch
+      currentBatch.content += formattedContent
+      currentBatch.fileNames.push(file.fileName)
+      currentSize += contentSize
+    }
+
+    // Add the last batch if it has content
+    if (currentBatch.content) {
+      currentBatch.fileName = `folder_${folderId}_batch_${batchNumber}.txt`
+      batches.push(currentBatch)
+    }
+
+    console.log(`Created ${batches.length} batches for ${files.length} files`)
+
+    // Upload each batch
+    const uploadResults = []
+    for (const batch of batches) {
+      try {
+        // Create a temporary file for the batch
+        const fs = await import('fs')
+        const path = await import('path')
+        const os = await import('os')
+        
+        const tempDir = os.tmpdir()
+        const tempFilePath = path.join(tempDir, `${Date.now()}-${batch.fileName}`)
+        
+        await fs.promises.writeFile(tempFilePath, batch.content, 'utf-8')
+        
+        await assistant.uploadFile({
+          path: tempFilePath,
+          metadata: {
+            userId,
+            folderId,
+            batchFileName: batch.fileName,
+            includedFiles: JSON.stringify(batch.fileNames),
+            fileCount: batch.fileNames.length.toString(),
+            uploadedAt: new Date().toISOString(),
+          }
+        })
+        
+        // Clean up temp file
+        try {
+          await fs.promises.unlink(tempFilePath)
+        } catch (unlinkError) {
+          console.warn(`Could not delete temp file ${tempFilePath}:`, unlinkError)
+        }
+        
+        console.log(`Batch ${batch.fileName} uploaded with ${batch.fileNames.length} files`)
+        uploadResults.push({
+          batchName: batch.fileName,
+          files: batch.fileNames,
+          status: 'success'
+        })
+      } catch (error) {
+        console.error(`Error uploading batch ${batch.fileName}:`, error)
+        uploadResults.push({
+          batchName: batch.fileName,
+          files: batch.fileNames,
+          status: 'error',
+          error: error instanceof Error ? error.message : String(error)
+        })
+      }
+    }
+
+    return uploadResults
+  }
 }

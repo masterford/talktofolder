@@ -85,6 +85,7 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
   const [sourcePanelWidth, setSourcePanelWidth] = useState(320) // 80 * 4 = 320px (w-80)
   const [sidePanelWidth, setSidePanelWidth] = useState(384) // 96 * 4 = 384px (w-96)
   const [isResizing, setIsResizing] = useState<'source' | 'side' | null>(null)
+  const [showProcessingNotification, setShowProcessingNotification] = useState(false)
   const profileMenuRef = useRef<HTMLDivElement>(null)
 
   // Fetch files and breadcrumbs when component mounts
@@ -254,8 +255,18 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
       
       if (response.ok) {
         const result = await response.json()
-        setIndexingStatus(result.successCount > 0 && result.errorCount === 0 ? 'completed' : 
-                         result.successCount > 0 ? 'partial' : 'failed')
+        const newStatus = result.successCount > 0 && result.errorCount === 0 ? 'completed' : 
+                         result.successCount > 0 ? 'partial' : 'failed'
+        setIndexingStatus(newStatus)
+        
+        // Show notification if indexing completed successfully
+        if (newStatus === 'completed' || newStatus === 'partial') {
+          setShowProcessingNotification(true)
+          // Hide notification after 10 seconds
+          setTimeout(() => {
+            setShowProcessingNotification(false)
+          }, 10000)
+        }
         
         // Refresh the files list to show updated indexing status
         const filesResponse = await fetch(`/api/google-drive/folders/${folderId}/files`)
@@ -635,6 +646,22 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
             </div>
           )}
         </div>
+
+        {/* Processing Notification */}
+        {showProcessingNotification && (
+          <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 bg-blue-50 border border-blue-200 rounded-lg px-6 py-3 shadow-lg z-50">
+            <div className="flex items-center space-x-3">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="text-sm text-blue-800">
+                Please wait up to 10 seconds for files to be fully processed
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Input */}
         <form onSubmit={handleSubmit} className="border-t border-gray-200 px-6 py-4">

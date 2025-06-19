@@ -56,10 +56,18 @@ export async function POST(
         session.user.id
       )
       console.log(`Assistant ${existed ? 'found' : 'created'} successfully`)
+      
+      // Delete existing files for this folder before re-indexing
+      console.log(`Deleting existing files for folder ${folder.id}`)
+      const deletedCount = await assistantService.deleteFilesForFolder(
+        session.user.id,
+        folder.id
+      )
+      console.log(`Deleted ${deletedCount} existing files for folder ${folder.id}`)
     } catch (error) {
-      console.error('Error creating assistant:', error)
+      console.error('Error creating assistant or deleting old files:', error)
       return NextResponse.json({
-        error: "Failed to create assistant",
+        error: "Failed to prepare for indexing",
         details: error instanceof Error ? error.message : String(error)
       }, { status: 500 })
     }
@@ -90,7 +98,14 @@ export async function POST(
 
     const fileProcessor = new FileProcessor(oauth2Client)
 
-    // Process each file
+    // First, process all files to extract content
+    const processedFiles: Array<{ 
+      fileId: string
+      fileName: string
+      content: string
+      metadata: Record<string, any>
+    }> = []
+
     for (const file of folder.files) {
       try {
         console.log(`Processing file: ${file.name}`)
@@ -112,34 +127,16 @@ export async function POST(
           continue
         }
 
-        // Upload content to Pinecone Assistant
-        await assistantService.uploadFileContentToAssistant(
-          session.user.id,
-          folder.id,
-          processedFile.content,
-          file.name,
-          {
+        processedFiles.push({
+          fileId: file.id,
+          fileName: file.name,
+          content: processedFile.content,
+          metadata: {
             fileId: file.id,
             mimeType: file.mimeType,
             driveId: file.driveId,
           }
-        )
-
-        // Update file status in database
-        await prisma.file.update({
-          where: { id: file.id },
-          data: { indexed: true },
         })
-
-        indexingResults.push({
-          fileId: file.id,
-          fileName: file.name,
-          status: 'success',
-        })
-        successCount++
-
-        // Add delay to avoid rate limits and allow file processing
-        await new Promise(resolve => setTimeout(resolve, 3000))
         
       } catch (error) {
         console.error(`Error processing file ${file.name}:`, error)
@@ -150,6 +147,75 @@ export async function POST(
           error: error instanceof Error ? error.message : String(error),
         })
         errorCount++
+      }
+    }
+
+    // Now batch upload all processed files
+    if (processedFiles.length > 0) {
+      try {
+        console.log(`Uploading ${processedFiles.length} files in batches`)
+        
+        const uploadResults = await assistantService.uploadBatchedContent(
+          session.user.id,
+          folder.id,
+          processedFiles
+        )
+
+        // Process upload results
+        for (const result of uploadResults) {
+          if (result.status === 'success') {
+            // Mark all files in this batch as indexed
+            for (const fileName of result.files) {
+              const file = processedFiles.find(f => f.fileName === fileName)
+              if (file) {
+                await prisma.file.update({
+                  where: { id: file.fileId },
+                  data: { indexed: true },
+                })
+
+                indexingResults.push({
+                  fileId: file.fileId,
+                  fileName: file.fileName,
+                  status: 'success',
+                  batch: result.batchName,
+                })
+                successCount++
+              }
+            }
+          } else {
+            // Mark files in failed batch as errors
+            for (const fileName of result.files) {
+              const file = processedFiles.find(f => f.fileName === fileName)
+              if (file) {
+                indexingResults.push({
+                  fileId: file.fileId,
+                  fileName: file.fileName,
+                  status: 'error',
+                  error: result.error || 'Batch upload failed',
+                  batch: result.batchName,
+                })
+                errorCount++
+              }
+            }
+          }
+        }
+        
+        console.log(`Batch upload completed: ${successCount} success, ${errorCount} errors`)
+        
+      } catch (error) {
+        console.error('Error in batch upload:', error)
+        // Mark all remaining files as errors
+        for (const file of processedFiles) {
+          if (!indexingResults.some(r => r.fileId === file.fileId)) {
+            indexingResults.push({
+              fileId: file.fileId,
+              fileName: file.fileName,
+              status: 'error',
+              error: 'Batch upload failed',
+            })
+            errorCount++
+          }
+        }
       }
     }
 
