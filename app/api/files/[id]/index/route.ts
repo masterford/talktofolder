@@ -118,10 +118,9 @@ export async function POST(
         chunks
       )
 
-      // Save chunks to database
+      // Save chunk metadata to database (without content)
       const chunkData = chunks.map(chunk => ({
         fileId: file.id,
-        content: chunk.content,
         embedding: JSON.stringify([]), // We store embeddings in Pinecone, not DB
         chunkIndex: chunk.chunkIndex,
         pageNumber: null, // Could be enhanced to track page numbers for PDFs

@@ -91,7 +91,6 @@ model Chunk {
   id         String   @id @default(cuid())
   fileId     String
   file       File     @relation(fields: [fileId], references: [id])
-  content    String   @db.Text
   embedding  String   @db.Text // Store as JSON
   chunkIndex Int
   pageNumber Int?
