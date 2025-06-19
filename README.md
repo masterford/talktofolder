@@ -1,6 +1,6 @@
 # TalkToFolder
 
-TalkToFolder allows you to connect your Google Drive folders and chat with an AI assistant about the contents of your files. Simply authenticate with Google, select or add a folder, and start asking questions about your documents.
+TalkToFolder allows you to connect your Google Drive folders and chat with an AI assistant about the contents of your files. Simply authenticate with Google, select or add a folder, and start asking questions about your documents. You can also view contents of individual files inside of an iframe next to the chat panel.
 
 # Demo
 Try a live demo here: https://talktofolder-masterfords-projects.vercel.app/
