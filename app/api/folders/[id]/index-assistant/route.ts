@@ -49,13 +49,11 @@ export async function POST(
     let successCount = 0
     let errorCount = 0
 
-    // Create or get assistant for this folder
+    // Create or get assistant for this user
     try {
-      console.log(`Creating/getting assistant for user ${session.user.id}, folder ${folder.id} (${folder.name})`)
+      console.log(`Creating/getting assistant for user ${session.user.id}`)
       const { assistant, existed } = await assistantService.createOrGetAssistant(
-        session.user.id, 
-        folder.id, 
-        folder.name
+        session.user.id
       )
       console.log(`Assistant ${existed ? 'found' : 'created'} successfully`)
     } catch (error) {

@@ -500,11 +500,23 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
                   className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                  <img
-                    className="h-8 w-8 rounded-full"
-                    src={session?.user?.image || ""}
-                    alt={session?.user?.name || "User"}
-                  />
+                  {session?.user?.image ? (
+                    <img
+                      className="h-8 w-8 rounded-full"
+                      src={session.user.image}
+                      alt={session?.user?.name || "User"}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                        e.currentTarget.nextElementSibling?.setAttribute('style', 'display: flex')
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    className="h-8 w-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-sm font-medium"
+                    style={{ display: session?.user?.image ? 'none' : 'flex' }}
+                  >
+                    {session?.user?.name?.charAt(0)?.toUpperCase() || session?.user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
                 </button>
 
                 {/* Profile Dropdown Menu */}

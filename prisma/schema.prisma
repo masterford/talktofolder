@@ -46,6 +46,7 @@ model User {
   emailVerified DateTime?
   name          String?
   image         String?
+  assistantName String?   // Pinecone assistant name for this user
   accounts      Account[]
   sessions      Session[]
   folders       Folder[]

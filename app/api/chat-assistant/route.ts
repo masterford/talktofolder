@@ -59,10 +59,9 @@ export async function POST(request: Request) {
       }))
 
       // Chat with Pinecone Assistant
-      console.log(`Chatting with assistant for user ${session.user.id}, folder ${chat.folder.id}`)
+      console.log(`Chatting with assistant for user ${session.user.id}`)
       const assistantResponse = await assistantService.chatWithAssistant(
         session.user.id,
-        chat.folder.id, // Use internal folder ID
         message,
         conversationHistory
       )

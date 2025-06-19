@@ -1,36 +1,53 @@
 import { Pinecone } from '@pinecone-database/pinecone'
+import { prisma } from './prisma'
 
 const pinecone = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY!,
 })
 
 export class PineconeAssistantService {
-  private getAssistantName(userId: string, folderId: string): string {
-    // Create a unique assistant name per user per folder
-    return `user-${userId}-folder-${folderId}`.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase()
+  private getAssistantName(userId: string): string {
+    // Create a unique assistant name per user (not per folder)
+    return `user-${userId}`.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase()
   }
 
-  async createOrGetAssistant(userId: string, folderId: string, folderName: string) {
-    const assistantName = this.getAssistantName(userId, folderId)
+  async createOrGetAssistant(userId: string) {
+    // Check if user already has an assistant name stored
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { assistantName: true }
+    })
+
+    let assistantName = user?.assistantName
+
+    if (!assistantName) {
+      // Generate new assistant name and store it
+      assistantName = this.getAssistantName(userId)
+      
+      await prisma.user.update({
+        where: { id: userId },
+        data: { assistantName }
+      })
+    }
     
     try {
       // Try to get existing assistant
       const existing = await pinecone.describeAssistant(assistantName)
-      return { assistant: pinecone.Assistant(assistantName), existed: true }
+      return { assistant: pinecone.Assistant(assistantName), existed: true, assistantName }
     } catch (error) {
       // Assistant doesn't exist, create new one
       try {
         console.log(`Creating new assistant: ${assistantName}`)
         const assistant = await pinecone.createAssistant({
           name: assistantName,
-          instructions: `You are an AI assistant helping users understand and work with documents in their Google Drive folder "${folderName}". Answer questions based on the uploaded documents. Be helpful, accurate, and cite specific documents when referencing information.`
+          instructions: `You are an AI assistant helping users understand and work with documents across all their Google Drive folders. Answer questions based on the uploaded documents from any folder. Be helpful, accurate, and cite specific documents when referencing information. When answering questions, consider the context of all uploaded documents.`
         })
         
         console.log('Assistant created, waiting for readiness...')
         // Wait a bit longer for assistant to be ready (as per Pinecone docs)
         await new Promise(resolve => setTimeout(resolve, 10000))
         
-        return { assistant: pinecone.Assistant(assistantName), existed: false }
+        return { assistant: pinecone.Assistant(assistantName), existed: false, assistantName }
       } catch (createError) {
         console.error('Error creating assistant:', createError)
         throw createError
@@ -45,7 +62,7 @@ export class PineconeAssistantService {
     fileName: string,
     metadata: Record<string, any> = {}
   ) {
-    const { assistant } = await this.createOrGetAssistant(userId, folderId, '')
+    const { assistant } = await this.createOrGetAssistant(userId)
     
     try {
       await assistant.uploadFile({
@@ -75,7 +92,7 @@ export class PineconeAssistantService {
     fileName: string,
     metadata: Record<string, any> = {}
   ) {
-    const { assistant } = await this.createOrGetAssistant(userId, folderId, '')
+    const { assistant } = await this.createOrGetAssistant(userId)
     
     try {
       // Create a temporary file for the content
@@ -119,11 +136,10 @@ export class PineconeAssistantService {
 
   async chatWithAssistant(
     userId: string,
-    folderId: string,
     message: string,
     conversationHistory: { role: string; content: string }[] = []
   ) {
-    const { assistant } = await this.createOrGetAssistant(userId, folderId, '')
+    const { assistant } = await this.createOrGetAssistant(userId)
     
     try {
       // Build messages array including conversation history
@@ -148,12 +164,19 @@ export class PineconeAssistantService {
     }
   }
 
-  async deleteAssistant(userId: string, folderId: string) {
-    const assistantName = this.getAssistantName(userId, folderId)
+  async deleteAssistant(userId: string) {
+    const { assistantName } = await this.createOrGetAssistant(userId)
     
     try {
       await pinecone.deleteAssistant(assistantName)
       console.log(`Assistant ${assistantName} deleted`)
+      
+      // Clear the assistant name from the user record
+      await prisma.user.update({
+        where: { id: userId },
+        data: { assistantName: null }
+      })
+      
       return true
     } catch (error) {
       console.error(`Error deleting assistant ${assistantName}:`, error)
@@ -161,8 +184,8 @@ export class PineconeAssistantService {
     }
   }
 
-  async listAssistantFiles(userId: string, folderId: string) {
-    const { assistant } = await this.createOrGetAssistant(userId, folderId, '')
+  async listAssistantFiles(userId: string) {
+    const { assistant } = await this.createOrGetAssistant(userId)
     
     try {
       const files = await assistant.listFiles()
