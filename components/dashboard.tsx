@@ -239,8 +239,6 @@ export default function Dashboard() {
               <h1 className="ml-3 text-2xl font-bold text-gray-900">TalkToFolder</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="text-gray-600 hover:text-gray-900">Share</button>
-              <button className="text-gray-600 hover:text-gray-900">Settings</button>
               <div className="relative" ref={profileMenuRef}>
                 <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
