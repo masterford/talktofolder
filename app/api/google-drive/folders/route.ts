@@ -108,7 +108,7 @@ export async function GET(request: Request) {
       console.error("Google Drive API error:", driveError)
       
       // Check if token is expired or invalid
-      if (driveError.code === 401 || driveError.message?.includes('invalid_request')) {
+      if (driveError.code === 401 || driveError.message?.includes('invalid_request') || driveError.message?.includes('invalid_grant')) {
         // Try to refresh the token
         if (account.refresh_token) {
           try {
@@ -144,9 +144,30 @@ export async function GET(request: Request) {
             // For brevity, return basic response here
             return NextResponse.json({ folders, nextPageToken })
             
-          } catch (refreshError) {
+          } catch (refreshError: any) {
             console.error("Token refresh failed:", refreshError)
-            return NextResponse.json({ error: "Authentication expired. Please sign in again." }, { status: 401 })
+            
+            // If refresh token is invalid, clear the tokens from the database
+            if (refreshError.message?.includes('invalid_grant')) {
+              await prisma.account.update({
+                where: {
+                  provider_providerAccountId: {
+                    provider: "google",
+                    providerAccountId: account.providerAccountId,
+                  },
+                },
+                data: {
+                  access_token: null,
+                  refresh_token: null,
+                  expires_at: null,
+                },
+              })
+            }
+            
+            return NextResponse.json({ 
+              error: "Authentication expired. Please reconnect Google Drive.", 
+              requiresReconnect: true 
+            }, { status: 401 })
           }
         }
         

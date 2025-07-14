@@ -640,7 +640,7 @@ export default function ChatInterface({ folderId }: ChatInterfaceProps) {
                     </div>
                     
                     {/* Citations for AI responses */}
-                    {message.role === "assistant" && message.citations && message.citations.length > 0 && (
+                    {message.role === "assistant" && message.citations && Array.isArray(message.citations) && message.citations.length > 0 && (
                       <div className="mt-2 text-xs text-gray-500">
                         <p className="font-medium">Sources:</p>
                         <div className="flex flex-wrap gap-1 mt-1">

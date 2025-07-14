@@ -51,7 +51,14 @@ export default function Dashboard() {
       
       if (!response.ok) {
         if (response.status === 401) {
-          // Authentication expired, redirect to sign in
+          const errorData = await response.json()
+          if (errorData.requiresReconnect) {
+            // Google Drive auth expired, reset connection status
+            setIsDriveConnected(false)
+            setIsCheckingDriveStatus(false)
+            return
+          }
+          // Other auth error, redirect to sign in
           window.location.href = "/auth/signin"
           return
         }

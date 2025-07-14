@@ -225,10 +225,83 @@ export async function GET(
         totalSubfolders: subfolders.length,
       })
     } catch (driveError: any) {
+      console.error("Google Drive API error:", driveError)
       
-      // Check if token is expired
-      if (driveError.code === 401 || driveError.message?.includes('invalid_request')) {
-        return NextResponse.json({ error: "Authentication expired. Please reconnect Google Drive." }, { status: 401 })
+      // Check if token is expired or invalid
+      if (driveError.code === 401 || driveError.message?.includes('invalid_request') || driveError.message?.includes('invalid_grant')) {
+        // Try to refresh the token
+        if (account.refresh_token) {
+          try {
+            const { credentials } = await oauth2Client.refreshAccessToken()
+            
+            // Update the stored access token
+            await prisma.account.update({
+              where: {
+                provider_providerAccountId: {
+                  provider: "google",
+                  providerAccountId: account.providerAccountId,
+                },
+              },
+              data: {
+                access_token: credentials.access_token,
+                expires_at: credentials.expiry_date ? Math.floor(credentials.expiry_date / 1000) : null,
+              },
+            })
+            
+            // Retry the request with new token
+            oauth2Client.setCredentials(credentials)
+            
+            // Retry getting folder details
+            const folderResponse = await drive.files.get({
+              fileId: folderId,
+              fields: "id,name,mimeType,parents",
+            })
+            
+            // Continue with simplified response after refresh
+            const filesResponse = await drive.files.list({
+              q: `'${folderId}' in parents and trashed=false`,
+              fields: "files(id,name,mimeType,size,modifiedTime,webViewLink,iconLink)",
+              pageSize: 1000,
+            })
+            
+            return NextResponse.json({
+              folder: {
+                id: folderId,
+                name: folderResponse.data.name,
+                driveId: folderId,
+              },
+              files: filesResponse.data.files || [],
+              refreshed: true,
+            })
+            
+          } catch (refreshError: any) {
+            console.error("Token refresh failed:", refreshError)
+            
+            // If refresh token is invalid, clear the tokens from the database
+            if (refreshError.message?.includes('invalid_grant')) {
+              await prisma.account.update({
+                where: {
+                  provider_providerAccountId: {
+                    provider: "google",
+                    providerAccountId: account.providerAccountId,
+                  },
+                },
+                data: {
+                  access_token: null,
+                  refresh_token: null,
+                  expires_at: null,
+                },
+              })
+            }
+            
+            return NextResponse.json({ 
+              error: "Authentication expired. Please reconnect Google Drive.", 
+              requiresReconnect: true 
+            }, { status: 401 })
+          }
+        }
+        
+        return NextResponse.json({ error: "Authentication expired. Please sign in again." }, { status: 401 })
       }
       
       return NextResponse.json({ 
